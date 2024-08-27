@@ -41,6 +41,7 @@ default_config_values = {
         'reference_group': 'dataset',
         'disable_image_header_test': 'false',
         'disable_image_meta_test': 'false',
+        'metaattribute_fields': ''
     }
 }
 
@@ -298,8 +299,8 @@ def validate_image_header(*, output_file, reference_file, output_group, referenc
 
         for attribute, rule in header_rules.items():
             if not rule(getattr(output, attribute), getattr(reference, attribute)):
-                print(output)
-                print(reference)
+                print("Output Header:", output, sep='\n')
+                print("Reference Header:", reference, sep='\n')
 
                 raise RuntimeError(
                     "Image header '{}' does not match reference. [index {}, series {}]".format(
@@ -323,8 +324,75 @@ def validate_image_header(*, output_file, reference_file, output_group, referenc
     except RuntimeError as e:
         return Failure, str(e)
 
-    return None, "Output headers matched reference"
+    return None, "Output ImageHeaders matched reference"
 
+def validate_image_metaattributes(*, output_file, reference_file, output_group, reference_group, metaattribute_fields):
+    def equals():
+        return lambda out, ref: out == ref
+
+    def approx(threshold=1e-6):
+        return lambda out, ref: abs(out - ref) <= threshold
+
+    def ignore():
+        return lambda out, ref: True
+
+    def each(rule):
+        return lambda out, ref: all(rule(out, ref) for out, ref in itertools.zip_longest(out, ref))
+
+    meta_rules = {}
+    for field in list(filter(None, metaattribute_fields.split(','))):
+        meta_rules[field] = each(equals())
+
+    def check_image_metaattributes(output, reference):
+        if not output:
+            raise RuntimeError("Missing output")
+
+        if not reference:
+            raise RuntimeError("Missing reference")
+
+        outMeta = ismrmrd.Meta.deserialize(output.attribute_string)
+        refMeta = ismrmrd.Meta.deserialize(reference.attribute_string)
+
+        if metaattribute_fields == 'all':
+            # Check all fields in either output or reference
+            meta_rules.clear()
+            for field in list(set(list(outMeta.keys())) | set(list(refMeta.keys()))):
+                meta_rules[field] = each(equals())
+
+        strErrors = ''
+        for attribute, rule in meta_rules.items():
+            if not rule(outMeta.get(attribute), refMeta.get(attribute)):
+                # print("Output MetaAttributes:")
+                # pprint.pprint(outMeta)
+                # print("Reference MetaAttributes:")
+                # pprint.pprint(refMeta)
+
+                strErrors +=   "MetaAttribute '{}' does not match reference. '{}' vs '{}' [index {}, series {}]".format(
+                        attribute,
+                        outMeta.get(attribute),
+                        refMeta.get(attribute),
+                        output.getHead().image_index,
+                        output.getHead().image_series_index
+                    )                    + "\n"
+                # )
+        if len(strErrors) > 0:
+            raise RuntimeError(strErrors[:-1])
+
+    try:
+        with ismrmrd.File(output_file, 'r') as output_file:
+            with ismrmrd.File(reference_file, 'r') as reference_file:
+                output_images = output_file[output_group].images or []
+                reference_images = reference_file[reference_group].images or []
+
+                for output_image, reference_image in itertools.zip_longest(output_images, reference_images):
+                    check_image_metaattributes(output_image, reference_image)
+
+    except OSError as e:
+        return Failure, str(e)
+    except RuntimeError as e:
+        return Failure, str(e)
+
+    return None, "Output MetaAttributes matched reference"
 
 def error_handlers(args, config):
     def handle_subprocess_errors(cont, **state):
@@ -647,7 +715,7 @@ def validate_client_output(args, config, section):
             **state
         )
 
-    def validate_meta(validator, cont, *, client_output, status=Passed, **state):
+    def validate_header(validator, cont, *, client_output, status=Passed, **state):
         result, reason = validator(output_file=client_output,
                                    reference_file=reference_file,
                                    output_group=config[section]['output_images'],
@@ -661,10 +729,26 @@ def validate_client_output(args, config, section):
             **state
         )
 
+    def validate_meta(validator, cont, *, client_output, status=Passed, **state):
+        result, reason = validator(output_file=client_output,
+                                   reference_file=reference_file,
+                                   output_group=config[section]['output_images'],
+                                   reference_group=config[section]['reference_images'],
+                                   metaattribute_fields=config[section]['metaattribute_fields'])
+
+        report_test(color_handler=args.color_handler, section=section, result=result, reason=reason)
+
+        return cont(
+            client_output=client_output,
+            status=status if result is None else Failure,
+            **state
+        )
+
     yield validate_output_action
 
     if not enabled(config[section]['disable_image_header_test']):
-        yield functools.partial(validate_meta, validate_image_header)
+        yield functools.partial(validate_header, validate_image_header)
+        yield functools.partial(validate_meta, validate_image_metaattributes)
 
 
 def validate_dataset_output(args, config, section):
