@@ -361,20 +361,47 @@ def validate_image_metaattributes(*, output_file, reference_file, output_group, 
 
         strErrors = ''
         for attribute, rule in meta_rules.items():
-            if not rule(outMeta.get(attribute), refMeta.get(attribute)):
-                # print("Output MetaAttributes:")
-                # pprint.pprint(outMeta)
-                # print("Reference MetaAttributes:")
-                # pprint.pprint(refMeta)
+            outAttr = outMeta.get(attribute)
+            refAttr = refMeta.get(attribute)
 
-                strErrors +=   "MetaAttribute '{}' does not match reference. '{}' vs '{}' [index {}, series {}]".format(
+            if outAttr is None:
+                strErrors += "MetaAttribute '{}' not found in output. '{}' in reference [index {}, series {}]".format(
                         attribute,
-                        outMeta.get(attribute),
-                        refMeta.get(attribute),
+                        refAttr,
                         output.getHead().image_index,
                         output.getHead().image_series_index
-                    )                    + "\n"
-                # )
+                    ) + "\n"
+                continue
+            elif refAttr is None:
+                strErrors += "MetaAttribute '{}' not found in reference. '{}' in output [index {}, series {}]".format(
+                        attribute,
+                        outAttr,
+                        output.getHead().image_index,
+                        output.getHead().image_series_index
+                    ) + "\n"
+                continue
+            elif (isinstance(outAttr, list) and isinstance(refAttr, list)) and (len(outAttr) != len(refAttr)):
+                strErrors += "MetaAttribute '{}' of different length in output ({}) vs reference ({}). '{}' vs '{}' [index {}, series {}]".format(
+                        attribute,
+                        len(outAttr),
+                        len(refAttr),
+                        outAttr,
+                        refAttr,
+                        output.getHead().image_index,
+                        output.getHead().image_series_index
+                    ) + "\n"
+                continue
+
+            if not rule(outAttr, refAttr):
+                strErrors += "MetaAttribute '{}' does not match reference. '{}' vs '{}' [index {}, series {}]".format(
+                        attribute,
+                        outAttr,
+                        refAttr,
+                        output.getHead().image_index,
+                        output.getHead().image_series_index
+                    ) + "\n"
+                continue
+
         if len(strErrors) > 0:
             raise RuntimeError(strErrors[:-1])
 
