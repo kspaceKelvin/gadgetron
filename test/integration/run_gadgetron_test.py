@@ -341,7 +341,12 @@ def validate_image_metaattributes(*, output_file, reference_file, output_group, 
 
     meta_rules = {}
     for field in list(filter(None, metaattribute_fields.split(','))):
-        meta_rules[field] = each(equals())
+        # Match against "field[0.01]", where the value in [] is the threshold for approximate comparison
+        r = re.search('^([^\[]+)\[(.+)\]$', field)
+        if r is None:
+            meta_rules[field] = each(equals())
+        else:
+            meta_rules[r[1]] = each(approx(threshold=float(r[2])))
 
     def check_image_metaattributes(output, reference):
         if not output:
