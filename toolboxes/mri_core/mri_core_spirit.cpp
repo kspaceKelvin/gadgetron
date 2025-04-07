@@ -112,8 +112,6 @@ void spirit2d_calib_convolution_kernel(const hoNDArray<T>& dataSrc, const hoNDAr
         // find the fully sampled region
         size_t RO = dataMask.get_size(0);
         size_t E1 = dataMask.get_size(1);
-        size_t srcCHA = dataSrc.get_size(2);
-        size_t dstCHA = dataDst.get_size(2);
 
         size_t startRO(0), endRO(0), startE1(0), endE1(0);
 
@@ -194,21 +192,21 @@ void spirit3d_calib(const hoNDArray<T>& acsSrc, const hoNDArray<T>& acsDst,
         size_t dstCHA = acsDst.get_size(3);
 
         long long kROhalf = kRO / 2;
-        if (2 * kROhalf == kRO)
+        if (2 * static_cast<size_t>(kROhalf) == kRO)
         {
             GWARN_STREAM("spirit3d_calib - 2*kROhalf == kRO " << kRO);
         }
         kRO = 2 * kROhalf + 1;
 
         long long kE1half = kE1 / 2;
-        if (2 * kE1half == kE1)
+        if (2 * static_cast<size_t>(kE1half) == kE1)
         {
             GWARN_STREAM("spirit3d_calib - 2*kE1half == kE1 " << kE1);
         }
         kE1 = 2 * kE1half + 1;
 
         long long kE2half = kE2 / 2;
-        if (2 * kE2half == kE2)
+        if (2 * static_cast<size_t>(kE2half) == kE2)
         {
             GWARN_STREAM("spirit3d_calib - 2*kE2half == kE2 " << kE2);
         }
@@ -219,21 +217,21 @@ void spirit3d_calib(const hoNDArray<T>& acsSrc, const hoNDArray<T>& acsDst,
         if (oE2 > kE2) oE2 = kE2;
 
         long long oROhalf = oRO / 2;
-        if (2 * oROhalf == oRO)
+        if (2 * static_cast<size_t>(oROhalf) == oRO)
         {
             GWARN_STREAM("spirit3d_calib - 2*oROhalf == oRO " << oRO);
         }
         oRO = 2 * oROhalf + 1;
 
         long long oE1half = oE1 / 2;
-        if (2 * oE1half == oE1)
+        if (2 * static_cast<size_t>(oE1half) == oE1)
         {
             GWARN_STREAM("spirit3d_calib - 2*oE1half == oE1 " << oE1);
         }
         oE1 = 2 * oE1half + 1;
 
         long long oE2half = oE2 / 2;
-        if (2 * oE2half == oE2)
+        if (2 * static_cast<size_t>(oE2half) == oE2)
         {
             GWARN_STREAM("spirit3d_calib - 2*oE2half == oE2 " << oE2);
         }
@@ -674,8 +672,6 @@ void spirit3d_calib_convolution_kernel(const hoNDArray<T>& dataSrc, const hoNDAr
         size_t RO = dataMask.get_size(0);
         size_t E1 = dataMask.get_size(1);
         size_t E2 = dataMask.get_size(2);
-        size_t srcCHA = dataSrc.get_size(3);
-        size_t dstCHA = dataDst.get_size(3);
 
         size_t startRO(0), endRO(0), startE1(0), endE1(0), startE2(0), endE2(0);
 
@@ -746,7 +742,6 @@ void spirit3d_kspace_image_domain_kernel(const hoNDArray<T>& convKer, size_t RO,
 {
     try
     {
-        size_t kRO = convKer.get_size(0);
         size_t kE1 = convKer.get_size(1);
         size_t kE2 = convKer.get_size(2);
 
